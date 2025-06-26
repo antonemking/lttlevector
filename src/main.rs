@@ -1,176 +1,296 @@
-use littlevector::{euclidean_distance, encode_vector, search_pq, CentroidTrainer};
+// src/main.rs
+//! LittleVector: Educational Vector Database with Production Capabilities
+//!
+//! This demonstrates both the educational foundations and realistic scale
+//! capabilities of LittleVector in a clean, user-facing interface.
+
+use littlevector::{LittleVector, presets, demo};
+use std::env;
+use std::process;
 
 fn main() {
-    println!("🚀 LittleVector: Complete Product Quantization Demo with K-means Training");
-    println!("{}", "=".repeat(70));
+    let args: Vec<String> = env::args().collect();
     
-    // ========================================================================
-    // STEP 1: Generate sample data for clustering demonstration
-    // ========================================================================
-    println!("\n📚 Step 1: Generate Sample Data");
-    
-    let training_data = generate_sample_vectors();
-    println!("  Generated {} training vectors for centroid training", training_data.len());
-    
-    // Sample documents for search demo
-    let documents = vec![
-        ("contract_termination.txt", vec![1.0, 2.0, 3.0, 4.0, 10.0, 11.0, 12.0, 13.0]),
-        ("employment_agreement.txt", vec![1.1, 2.1, 3.1, 4.1, 8.0, 9.0, 10.0, 11.0]),
-        ("privacy_policy.txt", vec![5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0]),
-        ("terms_of_service.txt", vec![0.9, 1.9, 2.9, 3.9, 9.5, 10.5, 11.5, 12.5]),
-    ];
-    
-    println!("  Sample documents for search:");
-    for (name, vector) in &documents {
-        println!("    📄 {}: {:?}", name, vector);
+    if args.len() < 2 {
+        print_usage();
+        return;
     }
     
-    // ========================================================================
-    // STEP 2: Train codebooks using k-means clustering
-    // ========================================================================
-    println!("\n🧠 Step 2: Train Codebooks with K-means");
-    
-    let num_subvectors = 2;
-    let subvector_size = training_data[0].len() / num_subvectors;
-    
-    println!("  Splitting {} dimensional vectors into {} subvectors of {} dimensions", 
-             training_data[0].len(), num_subvectors, subvector_size);
-    
-    // Split training data into subvectors for each subspace
-    let mut subvector_groups = vec![Vec::new(); num_subvectors];
-    for vector in &training_data {
-        for subspace in 0..num_subvectors {
-            let start = subspace * subvector_size;
-            let end = start + subvector_size;
-            let subvector = vector[start..end].to_vec();
-            subvector_groups[subspace].push(subvector);
+    match args[1].as_str() {
+        "demo" => run_demo_mode(&args[2..]),
+        "educational" => run_educational_mode(),
+        "performance" => run_performance_mode(), 
+        "compare" => run_comparison_mode(),
+        "documents" => run_document_mode(),
+        "--help" | "-h" => print_help(),
+        "--version" | "-v" => print_version(),
+        _ => {
+            eprintln!("Unknown command: {}", args[1]);
+            print_usage();
+            process::exit(1);
         }
     }
-    
-    // Train centroids for each subspace
-    let mut codebooks = Vec::new();
-    for (subspace_idx, subvectors) in subvector_groups.iter().enumerate() {
-        println!("\n  🎯 Training centroids for subspace {} (dimensions {}-{})", 
-                 subspace_idx, 
-                 subspace_idx * subvector_size, 
-                 (subspace_idx + 1) * subvector_size - 1);
-        
-        let mut trainer = CentroidTrainer::new(3); // 3 centroids per subspace
-        let centroids = trainer.train_centroids(subvectors);
-        
-        println!("    ✅ Trained {} centroids for subspace {}", centroids.len(), subspace_idx);
-        codebooks.push(centroids);
-    }
-    
-    println!("\n  📊 Training Complete:");
-    println!("    {} codebooks trained", codebooks.len());
-    println!("    {} centroids per codebook", codebooks[0].len());
-    
-    // ========================================================================
-    // STEP 3: Encode documents into PQ codes
-    // ========================================================================
-    println!("\n🔢 Step 3: Encode Documents to PQ Codes");
-    
-    let mut document_codes = Vec::new();
-    
-    for (name, vector) in &documents {
-        let pq_code = encode_vector(vector, &codebooks);
-        document_codes.push(pq_code.clone());
-        
-        println!("  📄 {}: {} bytes → {:?}", 
-                 name, 
-                 vector.len() * 4, // 4 bytes per f32
-                 pq_code);
-    }
-    
-    let original_size = documents.len() * 8 * 4; // 4 docs × 8 dims × 4 bytes
-    let compressed_size = documents.len() * 2;    // 4 docs × 2 bytes
-    println!("  💾 Compression: {} bytes → {} bytes ({:.1}x smaller)", 
-             original_size, compressed_size, 
-             original_size as f32 / compressed_size as f32);
-    
-    // ========================================================================
-    // STEP 4: Search with a query
-    // ========================================================================
-    println!("\n🔍 Step 4: Search Demo");
-    
-    let query = vec![1.05, 2.05, 3.05, 4.05, 10.2, 11.2, 12.2, 13.2];
-    println!("  🎯 Query vector: {:?}", query);
-    
-    // Perform PQ search
-    let results = search_pq(&query, &document_codes, &codebooks, 3);
-    
-    println!("  📊 Search Results (top 3):");
-    for (rank, (doc_idx, distance)) in results.iter().enumerate() {
-        let doc_name = &documents[*doc_idx].0;
-        println!("    {}. {} (distance: {:.3})", rank + 1, doc_name, distance);
-    }
-    
-    // ========================================================================
-    // STEP 5: Compare with exact search
-    // ========================================================================
-    println!("\n⚖️  Step 5: Accuracy Comparison");
-    
-    // Exact search for comparison
-    let mut exact_results = Vec::new();
-    for (idx, (_name, vector)) in documents.iter().enumerate() {
-        let distance = euclidean_distance(&query, vector);
-        exact_results.push((idx, distance));
-    }
-    exact_results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    
-    println!("  🎯 Exact search results:");
-    for (rank, (doc_idx, distance)) in exact_results.iter().take(3).enumerate() {
-        let doc_name = &documents[*doc_idx].0;
-        println!("    {}. {} (distance: {:.3})", rank + 1, doc_name, distance);
-    }
-    
-    // Check if top result matches
-    let pq_top = results[0].0;
-    let exact_top = exact_results[0].0;
-    if pq_top == exact_top {
-        println!("  ✅ PQ found the same top result as exact search!");
-    } else {
-        println!("  ⚠️  PQ top result differs from exact search (expected with compression)");
-    }
-    
-    println!("\n🎉 Demo Complete! You've seen the complete PQ pipeline:");
-    println!("   • K-means clustering for centroid training");
-    println!("   • Convergence tracking and metrics");
-    println!("   • Vector splitting and encoding");
-    println!("   • Massive compression ({}x smaller)", 
-             original_size / compressed_size);
-    println!("   • Fast asymmetric search");
-    println!("   • Accuracy comparison with exact search");
 }
 
-/// Generate sample vectors with natural clustering structure
-/// 
-/// Creates vectors that have clear cluster patterns so k-means
-/// training will find meaningful centroids. In real applications,
-/// these would be embeddings from your actual documents.
-fn generate_sample_vectors() -> Vec<Vec<f32>> {
-    use rand::prelude::*;
-    let mut rng = thread_rng();
-    let mut vectors = Vec::new();
+fn run_demo_mode(args: &[String]) {
+    println!("🚀 LittleVector Demo Mode");
+    println!("=========================");
     
-    // Create 3 natural clusters in 8D space
-    let cluster_centers = vec![
-        vec![1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 3.0, 4.0],      // Cluster A: low values
-        vec![8.0, 9.0, 10.0, 11.0, 8.0, 9.0, 10.0, 11.0],  // Cluster B: high values  
-        vec![4.0, 5.0, 6.0, 7.0, 11.0, 12.0, 13.0, 14.0],  // Cluster C: mixed values
-    ];
-    
-    // Generate points around each cluster center
-    for center in &cluster_centers {
-        for _ in 0..15 { // 15 points per cluster = 45 total training vectors
-            let mut point = center.clone();
-            for value in point.iter_mut() {
-                *value += rng.gen_range(-0.8..0.8); // Add some noise
+    if args.is_empty() {
+        // Run default demo sequence
+        run_complete_demo();
+    } else {
+        match args[0].as_str() {
+            "quick" => run_quick_demo(),
+            "full" => run_complete_demo(),
+            "interactive" => run_interactive_demo(),
+            _ => {
+                eprintln!("Unknown demo type: {}", args[0]);
+                eprintln!("Available: quick, full, interactive");
             }
-            vectors.push(point);
+        }
+    }
+}
+
+fn run_educational_mode() {
+    println!("📚 LittleVector Educational Mode");
+    println!("=================================");
+    println!("This mode demonstrates core concepts with small, interpretable data.\n");
+    
+    match demo::run_educational_demo() {
+        Ok(()) => {
+            println!("\n✅ Educational demo completed successfully!");
+            println!("\n📖 What you learned:");
+            println!("  • Product Quantization compresses vectors 100-400x");
+            println!("  • K-means clustering finds natural centroids"); 
+            println!("  • Asymmetric search enables fast similarity queries");
+            println!("  • Mathematical transparency shows exactly how it works");
+        }
+        Err(e) => {
+            eprintln!("❌ Educational demo failed: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn run_performance_mode() {
+    println!("🎯 LittleVector Performance Mode");
+    println!("=================================");
+    println!("Testing with realistic 768-dimensional vectors and thousands of documents.\n");
+    
+    match demo::run_performance_demo() {
+        Ok(()) => {
+            println!("\n✅ Performance demo completed successfully!");
+            println!("\n📊 Key insights:");
+            println!("  • Sub-millisecond search across thousands of documents");
+            println!("  • 300-400x compression ratio on realistic embeddings");
+            println!("  • Memory usage scales linearly with dataset size");
+            println!("  • Training converges quickly with k-means++ initialization");
+        }
+        Err(e) => {
+            eprintln!("❌ Performance demo failed: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn run_comparison_mode() {
+    println!("⚖️  LittleVector Configuration Comparison");
+    println!("=========================================");
+    println!("Comparing different configuration presets on the same dataset.\n");
+    
+    match demo::run_configuration_comparison() {
+        Ok(()) => {
+            println!("\n✅ Comparison completed successfully!");
+            println!("\n🔧 Configuration guide:");
+            println!("  • Educational: Best for learning and small datasets");
+            println!("  • Production: Balanced performance and accuracy");
+            println!("  • High Compression: Maximum space efficiency");
+        }
+        Err(e) => {
+            eprintln!("❌ Comparison failed: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn run_document_mode() {
+    println!("📄 LittleVector Document Search");
+    println!("===============================");
+    println!("Demonstrating semantic search over document embeddings.\n");
+    
+    match demo::run_document_search_demo() {
+        Ok(()) => {
+            println!("\n✅ Document search demo completed!");
+            println!("\n📝 Applications:");
+            println!("  • Legal document retrieval");
+            println!("  • Policy and contract search");
+            println!("  • Knowledge base queries");
+            println!("  • Content recommendation");
+        }
+        Err(e) => {
+            eprintln!("❌ Document demo failed: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn run_quick_demo() {
+    println!("⚡ Quick Demo: LittleVector in 30 seconds\n");
+    
+    // Generate small dataset
+    let docs = demo::generate_sample_data(100, Some(42));
+    println!("📊 Generated {} test documents (768D)", docs.len());
+    
+    // Create database with production config
+    let mut db = LittleVector::with_config(presets::production());
+    
+    // Train
+    let start = std::time::Instant::now();
+    match db.train(&docs[..50]) {
+        Ok(result) => println!("🧠 Trained in {:.1}ms", result.training_time_ms),
+        Err(e) => {
+            eprintln!("Training failed: {}", e);
+            return;
         }
     }
     
-    vectors
+    // Add documents
+    match db.add_documents(&docs[50..]) {
+        Ok(result) => println!("🗜️  Compressed {} docs ({:.1}x ratio)", 
+                             result.documents_added, result.compression_ratio),
+        Err(e) => {
+            eprintln!("Compression failed: {}", e);
+            return;
+        }
+    }
+    
+    // Search
+    match db.search(&docs[0].embedding, 5) {
+        Ok(results) => {
+            println!("🔍 Search completed in {:.3}ms", results.search_time_ms);
+            println!("   Top result: {} (distance: {:.3})", 
+                     results.documents[0].id, results.documents[0].distance);
+        }
+        Err(e) => {
+            eprintln!("Search failed: {}", e);
+            return;
+        }
+    }
+    
+    let total_time = start.elapsed();
+    println!("\n✅ Complete workflow in {:.1}ms", total_time.as_secs_f32() * 1000.0);
+}
+
+fn run_complete_demo() {
+    println!("🎬 Complete Demo: Full LittleVector Capabilities\n");
+    
+    println!("Part 1: Educational Foundation");
+    println!("─────────────────────────────");
+    if let Err(e) = demo::run_educational_demo() {
+        eprintln!("Educational demo failed: {}", e);
+        return;
+    }
+    
+    println!("\n\nPart 2: Performance at Scale");
+    println!("────────────────────────────");
+    if let Err(e) = demo::run_performance_demo() {
+        eprintln!("Performance demo failed: {}", e);
+        return;
+    }
+    
+    println!("\n\nPart 3: Configuration Options");
+    println!("─────────────────────────────");
+    if let Err(e) = demo::run_configuration_comparison() {
+        eprintln!("Configuration comparison failed: {}", e);
+        return;
+    }
+    
+    println!("\n\n🎉 Complete demo finished!");
+    println!("You've seen LittleVector from educational concepts to production capabilities.");
+}
+
+fn run_interactive_demo() {
+    println!("🎮 Interactive Demo Mode");
+    println!("========================");
+    println!("This would be an interactive CLI for exploring LittleVector features.");
+    println!("(Interactive mode not implemented in this demo)");
+    
+    // TODO: Implement interactive CLI
+    // - Let users choose dataset size
+    // - Configure parameters
+    // - Run custom queries
+    // - Visualize results
+}
+
+fn print_usage() {
+    println!("Usage: littlevector <COMMAND> [OPTIONS]");
+    println!("");
+    println!("Commands:");
+    println!("  demo [quick|full|interactive]  Run demonstration modes");
+    println!("  educational                    Learn core concepts with small data");
+    println!("  performance                    Test realistic scale performance");
+    println!("  compare                        Compare configuration presets");
+    println!("  documents                      Semantic document search demo");
+    println!("  --help, -h                     Show this help message");
+    println!("  --version, -v                  Show version information");
+    println!("");
+    println!("Examples:");
+    println!("  littlevector demo quick        # 30-second overview");
+    println!("  littlevector educational       # Learn the fundamentals");
+    println!("  littlevector performance       # Realistic scale testing");
+    println!("  littlevector compare           # Configuration comparison");
+}
+
+fn print_help() {
+    println!("LittleVector - Educational Vector Database");
+    println!("==========================================");
+    println!("");
+    print_usage();
+    println!("");
+    println!("About:");
+    println!("  LittleVector is a transparent implementation of Product Quantization");
+    println!("  and vector similarity search. It scales from educational demos to"); 
+    println!("  realistic workloads while maintaining mathematical clarity.");
+    println!("");
+    println!("Features:");
+    println!("  • Product Quantization compression (100-400x)");
+    println!("  • K-means clustering for centroid training");
+    println!("  • Asymmetric distance computation for fast search");
+    println!("  • Configurable for different use cases");
+    println!("  • Educational transparency at every step");
+    println!("");
+    println!("Educational Purpose:");
+    println!("  Unlike production vector databases, LittleVector exposes the");
+    println!("  mathematical operations so you can understand exactly how");
+    println!("  modern vector search systems work under the hood.");
+    println!("");
+    println!("Repository: https://github.com/your-username/littlevector");
+}
+
+fn print_version() {
+    println!("LittleVector v{}", env!("CARGO_PKG_VERSION"));
+    println!("Educational Vector Database with Production Capabilities");
+    println!("Built with Rust for performance and mathematical transparency");
+}
+
+// Integration test that can be run as part of main
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use littlevector::*;
+
+    #[test]
+    fn test_complete_workflow() {
+        let docs = demo::generate_sample_data(50, Some(123));
+        let mut db = LittleVector::with_config(presets::educational());
+        
+        // Should complete without errors
+        db.train(&docs[..25]).unwrap();
+        db.add_documents(&docs[25..]).unwrap();
+        let results = db.search(&docs[0].embedding, 5).unwrap();
+        
+        assert_eq!(results.documents.len(), 5);
+        assert!(results.search_time_ms < 100.0); // Reasonable performance
+    }
 }

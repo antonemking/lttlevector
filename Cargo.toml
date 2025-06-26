@@ -2,6 +2,67 @@
 name = "littlevector"
 version = "0.1.0"
 edition = "2021"
+authors = ["Antone King <toneking972@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Educational vector database with production capabilities - learn how Product Quantization works"
+homepage = "https://github.com/antonemking/littlevector"
+repository = "https://github.com/antonemking/littlevector"
+documentation = "https://docs.rs/littlevector"
+readme = "README.md"
+keywords = ["vector-database", "product-quantization", "similarity-search", "educational", "machine-learning"]
+categories = ["algorithms", "data-structures", "mathematics", "science"]
 
 [dependencies]
-rand = "0.8"
+rand = { version = "0.8", features = ["std_rng"] }
+
+# TODO: Add rayon for parallel processing in the future
+# rayon = { version = "1.8", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[features]
+default = []
+# Future features could include:
+# parallel = ["rayon"]
+# simd = []
+# gpu = []
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
+
+[[example]]
+name = "custom_config"
+path = "examples/custom_config.rs"
+
+[[example]]
+name = "realistic_scale"
+path = "examples/realistic_scale.rs"
+
+[[bench]]
+name = "performance"
+harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.bench]
+debug = true
+
+# Package metadata for cargo install
+[package.metadata.littlevector]
+educational = true
+target_audiences = ["students", "researchers", "engineers"]
+use_cases = [
+    "learning vector search algorithms",
+    "prototyping similarity search systems", 
+    "understanding product quantization",
+    "building custom vector databases"
+]
