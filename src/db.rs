@@ -355,7 +355,7 @@ impl LittleVector {
             .collect()
     }
 
-    fn split_training_vectors(&self, docs: &[&Document], subspace_dim: usize) -> Vec<Vec<SubVector>> {
+    fn split_training_vectors(&self, docs: &[&Document], _subspace_dim: usize) -> Vec<Vec<SubVector>> {
         let mut subvector_groups = vec![Vec::new(); self.num_subspaces];
         
         for doc in docs {

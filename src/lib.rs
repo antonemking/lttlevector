@@ -5,11 +5,11 @@
 //! mathematical clarity.
 
 pub mod math;
-pub mod database;
+pub mod db;
 pub mod demo;
 
 // Re-export core functionality for clean public API
-pub use database::{LittleVector, Document, SearchResult, SearchResults};
+pub use db::{LittleVector, Document, SearchResult, SearchResults};
 pub use math::distance::euclidean_distance;
 pub use math::pq::{split_vector, encode_vector, search_pq};
 pub use math::clustering::{CentroidTrainer, ConvergenceMetrics};
@@ -24,7 +24,7 @@ pub const DIMENSIONS_1536: usize = 1536;
 
 /// Configuration presets for common use cases
 pub mod presets {
-    use crate::database::DatabaseConfig;
+    use crate::db::DatabaseConfig;
 
     /// Configuration optimized for learning and small datasets
     pub fn educational() -> DatabaseConfig {
